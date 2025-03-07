@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:ig_automated_tools/hive_handler.dart';
+import 'package:ig_automated_tools/models/media_file_model.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart' as rsi;
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveHandler.initHive();
   runApp(const MyApp());
 }
 
@@ -33,14 +37,31 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Scaffold(
+      body: FutureBuilder(
+        future: HiveHandler.getFiles(),
+        builder: (context, snapshot) {
+          return snapshot.hasData
+              ? ListView.builder(
+                itemCount: snapshot.data?.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text('${snapshot.data?[index].name}'),
+                    subtitle: Text('${snapshot.data?[index].path}'),
+                  );
+                },
+              )
+              : const Center(child: CircularProgressIndicator());
+        },
+      ),
+    );
   }
 
-  _receiveData(List<rsi.SharedMediaFile> value) {
-    for (var file in value) {
-      if (kDebugMode) {
-        print(file.path);
-      }
-    }
+  _receiveData(List<rsi.SharedMediaFile> value) async {
+    await HiveHandler.addFiles(
+      List<MediaFileModel>.from(
+        value.map((e) => MediaFileModel.fromMap(e.toMap())),
+      ),
+    );
   }
 }

@@ -32,6 +32,8 @@ class MediaFileModel {
     this.message,
   });
 
+  String get name => path.split('/').last;
+
   MediaFileModel.fromMap(Map<String, dynamic> json)
     : path = json['path'],
       thumbnail = json['thumbnail'],
