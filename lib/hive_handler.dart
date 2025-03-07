@@ -1,6 +1,8 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:ig_automated_tools/models/media_file_model.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,33 +19,24 @@ class HiveHandler {
     documentsDirectory = path;
     Hive
       ..init(path)
-      ..registerAdapter<MediaFileModel>(MediaFileModelAdapter(), override: true)
-      ..registerAdapter<SharedMediaType>(
-        SharedMediaTypeAdapter(),
-        override: true,
-      );
+      ..registerAdapter<MediaFileModel>(MediaFileModelAdapter())
+      ..registerAdapter<SharedMediaType>(SharedMediaTypeAdapter());
   }
 
-  static Future<LazyBox<E>> getBox<E>(String boxName) async =>
-      Hive.isBoxOpen(boxName)
-          ? await Hive.openLazyBox<E>(boxName)
-          : Hive.lazyBox<E>(boxName);
-
-  static Future<void> closeBox(String boxName) async {
-    if (Hive.isBoxOpen(boxName)) {
-      await Hive.box(boxName).close();
-    }
+  static Future<Box> getBox() async {
+    return Hive.isBoxOpen(HiveBoxName.myBox.name)
+        ? Hive.box(HiveBoxName.myBox.name)
+        : await Hive.openBox(HiveBoxName.myBox.name);
   }
 
   static Future<void> addFiles(List<MediaFileModel> files) async {
-    LazyBox<List<MediaFileModel>> myBox = await getBox<List<MediaFileModel>>(
-      HiveBoxName.myBox.name,
-    );
+    Box myBox = await getBox();
 
-    List<MediaFileModel> temp =
-        myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
-            ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
-            : [];
+    List<MediaFileModel> temp = List<MediaFileModel>.from(
+      myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
+          ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
+          : [],
+    );
 
     for (var item in files) {
       File file = File(item.path);
@@ -70,42 +63,47 @@ class HiveHandler {
     );
     await myBox.put(HiveBoxField.sharedMediaFiles.name, temp);
 
-    await myBox.close();
+    Fluttertoast.showToast(msg: 'Files added');
   }
 
   static Future<void> removeFile(MediaFileModel file) async {
-    LazyBox<List<MediaFileModel>> myBox = await getBox<List<MediaFileModel>>(
-      HiveBoxName.myBox.name,
-    );
+    Box myBox = await getBox();
 
-    List<MediaFileModel> temp =
-        myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
-            ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
-            : [];
+    List<MediaFileModel> temp = List<MediaFileModel>.from(
+      myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
+          ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
+          : [],
+    );
 
     for (var item in temp) {
       if (item.path == file.path) {
-        await File(item.path).delete();
-
-        temp.remove(item);
+        try {
+          File localFile = File(item.path);
+          if (await localFile.exists()) {
+            await localFile.delete();
+            log('file deleted');
+          } else {
+            Fluttertoast.showToast(msg: 'file doesn\'t exists');
+          }
+        } catch (e) {
+          Fluttertoast.showToast(msg: 'Error deleting file ${item.path}');
+        }
       }
     }
-    await myBox.put(HiveBoxField.sharedMediaFiles.name, temp);
 
-    await myBox.close();
+    temp.removeWhere((element) => element.path == file.path);
+    await myBox.put(HiveBoxField.sharedMediaFiles.name, temp);
+    Fluttertoast.showToast(msg: 'file deleted');
   }
 
   static Future<List<MediaFileModel>> getFiles() async {
-    LazyBox<List<MediaFileModel>> myBox = await getBox<List<MediaFileModel>>(
-      HiveBoxName.myBox.name,
+    Box myBox = await getBox();
+
+    List<MediaFileModel> temp = List<MediaFileModel>.from(
+      myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
+          ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
+          : [],
     );
-
-    List<MediaFileModel> temp =
-        myBox.containsKey(HiveBoxField.sharedMediaFiles.name)
-            ? await myBox.get(HiveBoxField.sharedMediaFiles.name) ?? []
-            : [];
-
-    await myBox.close();
 
     return temp;
   }

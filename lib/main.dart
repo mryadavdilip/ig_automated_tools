@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ig_automated_tools/hive_handler.dart';
@@ -7,6 +9,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart' as rsi;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveHandler.initHive();
+
   runApp(const MyApp());
 }
 
@@ -37,31 +40,41 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: FutureBuilder(
-        future: HiveHandler.getFiles(),
-        builder: (context, snapshot) {
-          return snapshot.hasData
-              ? ListView.builder(
-                itemCount: snapshot.data?.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text('${snapshot.data?[index].name}'),
-                    subtitle: Text('${snapshot.data?[index].path}'),
-                  );
-                },
-              )
-              : const Center(child: CircularProgressIndicator());
-        },
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: FutureBuilder(
+          future: HiveHandler.getFiles(),
+          builder: (context, snapshot) {
+            return snapshot.hasData
+                ? ListView.builder(
+                  itemCount: snapshot.data?.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      title: Text('${snapshot.data?[index].name}'),
+                      subtitle: Text('${snapshot.data?[index].path}'),
+                      onLongPress: () async {
+                        await HiveHandler.removeFile(snapshot.data![index]);
+                        setState(() {});
+                      },
+                    );
+                  },
+                )
+                : const Center(child: Text('No files available'));
+          },
+        ),
       ),
     );
   }
 
   _receiveData(List<rsi.SharedMediaFile> value) async {
+    // log('message: ${value.map((e) => e.path).toList()}');
+
     await HiveHandler.addFiles(
       List<MediaFileModel>.from(
         value.map((e) => MediaFileModel.fromMap(e.toMap())),
       ),
     );
+    setState(() {});
   }
 }
