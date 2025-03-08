@@ -14,7 +14,7 @@ class MediaFileModel {
   final int? duration;
 
   @HiveField(3)
-  final SharedMediaType type;
+  final SharedFileType type;
 
   @HiveField(4)
   final String? mimeType;
@@ -38,7 +38,7 @@ class MediaFileModel {
     : path = json['path'],
       thumbnail = json['thumbnail'],
       duration = json['duration'],
-      type = SharedMediaType.fromValue(json['type']),
+      type = SharedFileType.fromValue(json['type']),
       mimeType = json['mimeType'],
       message = json['message'];
 
@@ -55,7 +55,7 @@ class MediaFileModel {
 }
 
 @HiveType(typeId: 1)
-enum SharedMediaType {
+enum SharedFileType {
   @HiveField(0)
   image('image'),
   @HiveField(1)
@@ -69,9 +69,9 @@ enum SharedMediaType {
 
   final String value;
 
-  const SharedMediaType(this.value);
+  const SharedFileType(this.value);
 
-  static SharedMediaType fromValue(String value) {
-    return SharedMediaType.values.firstWhere((e) => e.value == value);
+  static SharedFileType fromValue(String value) {
+    return SharedFileType.values.firstWhere((e) => e.value == value);
   }
 }

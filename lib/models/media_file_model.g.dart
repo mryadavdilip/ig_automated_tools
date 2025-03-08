@@ -18,7 +18,7 @@ class MediaFileModelAdapter extends TypeAdapter<MediaFileModel> {
     };
     return MediaFileModel(
       path: fields[0] as String,
-      type: fields[3] as SharedMediaType,
+      type: fields[3] as SharedFileType,
       thumbnail: fields[1] as String?,
       duration: fields[2] as int?,
       mimeType: fields[4] as String?,
@@ -55,44 +55,44 @@ class MediaFileModelAdapter extends TypeAdapter<MediaFileModel> {
           typeId == other.typeId;
 }
 
-class SharedMediaTypeAdapter extends TypeAdapter<SharedMediaType> {
+class SharedFileTypeAdapter extends TypeAdapter<SharedFileType> {
   @override
   final int typeId = 1;
 
   @override
-  SharedMediaType read(BinaryReader reader) {
+  SharedFileType read(BinaryReader reader) {
     switch (reader.readByte()) {
       case 0:
-        return SharedMediaType.image;
+        return SharedFileType.image;
       case 1:
-        return SharedMediaType.video;
+        return SharedFileType.video;
       case 2:
-        return SharedMediaType.text;
+        return SharedFileType.text;
       case 3:
-        return SharedMediaType.file;
+        return SharedFileType.file;
       case 4:
-        return SharedMediaType.url;
+        return SharedFileType.url;
       default:
-        return SharedMediaType.image;
+        return SharedFileType.image;
     }
   }
 
   @override
-  void write(BinaryWriter writer, SharedMediaType obj) {
+  void write(BinaryWriter writer, SharedFileType obj) {
     switch (obj) {
-      case SharedMediaType.image:
+      case SharedFileType.image:
         writer.writeByte(0);
         break;
-      case SharedMediaType.video:
+      case SharedFileType.video:
         writer.writeByte(1);
         break;
-      case SharedMediaType.text:
+      case SharedFileType.text:
         writer.writeByte(2);
         break;
-      case SharedMediaType.file:
+      case SharedFileType.file:
         writer.writeByte(3);
         break;
-      case SharedMediaType.url:
+      case SharedFileType.url:
         writer.writeByte(4);
         break;
     }
@@ -104,7 +104,7 @@ class SharedMediaTypeAdapter extends TypeAdapter<SharedMediaType> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SharedMediaTypeAdapter &&
+      other is SharedFileTypeAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

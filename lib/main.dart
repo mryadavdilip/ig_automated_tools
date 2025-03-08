@@ -1,10 +1,6 @@
-import 'dart:developer';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ig_automated_tools/hive_handler.dart';
-import 'package:ig_automated_tools/models/media_file_model.dart';
-import 'package:receive_sharing_intent/receive_sharing_intent.dart' as rsi;
+import 'package:ig_automated_tools/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,68 +9,11 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    rsi.ReceiveSharingIntent.instance.getMediaStream().listen(
-      _receiveData,
-      onError: (e) {
-        if (kDebugMode) {
-          print(e);
-        }
-      },
-    );
-    rsi.ReceiveSharingIntent.instance.getInitialMedia().then((value) {
-      _receiveData(value);
-      rsi.ReceiveSharingIntent.instance.reset();
-    });
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: FutureBuilder(
-          future: HiveHandler.getFiles(),
-          builder: (context, snapshot) {
-            return snapshot.hasData
-                ? ListView.builder(
-                  itemCount: snapshot.data?.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text('${snapshot.data?[index].name}'),
-                      subtitle: Text('${snapshot.data?[index].path}'),
-                      onLongPress: () async {
-                        await HiveHandler.removeFile(snapshot.data![index]);
-                        setState(() {});
-                      },
-                    );
-                  },
-                )
-                : const Center(child: Text('No files available'));
-          },
-        ),
-      ),
-    );
-  }
-
-  _receiveData(List<rsi.SharedMediaFile> value) async {
-    // log('message: ${value.map((e) => e.path).toList()}');
-
-    await HiveHandler.addFiles(
-      List<MediaFileModel>.from(
-        value.map((e) => MediaFileModel.fromMap(e.toMap())),
-      ),
-    );
-    setState(() {});
+    return MaterialApp(debugShowCheckedModeBanner: false, home: HomePage());
   }
 }
