@@ -1,8 +1,9 @@
 import 'package:chat_gpt_sdk/chat_gpt_sdk.dart';
-import 'package:ig_automated_tools/hive_handler.dart';
+import 'package:flutter/foundation.dart';
+import 'package:smart_gallery/hive_handler.dart';
 
 class ChatgptHandler {
-  Future<OpenAI> get openAI async => OpenAI.instance.build(
+  Future<OpenAI> get _openAI async => OpenAI.instance.build(
     token: (await HiveHandler.getOpenAIKey()).key,
     baseOption: HttpSetup(
       receiveTimeout: const Duration(seconds: 30),
@@ -11,8 +12,8 @@ class ChatgptHandler {
     enableLog: true,
   );
 
-  Future<String> getChatResponse(String message) async {
-    final response = ChatCompleteText(
+  Future<ChatCTResponse?> getChatResponse(String message) async {
+    final request = ChatCompleteText(
       model: Gpt4OChatModel(),
       maxToken: 200,
       messages: [
@@ -31,20 +32,39 @@ class ChatgptHandler {
         jsonSchema: JsonSchema(
           name: 'url extractor',
           schema: {
-            'type': 'array',
-            'items': {
-              'type': 'object',
-              'properties': {
-                'userId': {'type': 'string'},
-                'url': {'type': 'string'},
-                'category': {'type': 'string'},
+            "type": "object",
+            "properties": {
+              "userId": {"type": "string"},
+              "categories": {
+                "type": "array",
+                "items": {"type": "string"},
               },
-              'required': ['extractedData'],
+              "contents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "url": {"type": "string"},
+                    "categories": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                    },
+                  },
+                  "required": ["url", "categories"],
+                },
+              },
             },
+            "required": ["userId", "categories", "contents"],
           },
         ),
       ),
     );
-    return response.messages.first['content'];
+
+    ChatCTResponse? response = await (await _openAI).onChatCompletion(
+      request: request,
+    );
+
+    debugPrint('$response');
+    return response;
   }
 }

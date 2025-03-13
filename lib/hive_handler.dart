@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
-import 'package:ig_automated_tools/infra/utils.dart';
-import 'package:ig_automated_tools/models/media_file_model.dart';
-import 'package:ig_automated_tools/models/open_ai_key_model.dart';
+import 'package:smart_gallery/infra/utils.dart';
+import 'package:smart_gallery/models/media_file_model.dart';
+import 'package:smart_gallery/models/open_ai_key_model.dart';
 import 'package:path_provider/path_provider.dart';
 
 enum HiveBoxName { myBox }

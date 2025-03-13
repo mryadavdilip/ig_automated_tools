@@ -1,4 +1,4 @@
-# ig_automated_tools
+# smart_gallery
 
 A new Flutter project.
 

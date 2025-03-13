@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ig_automated_tools/hive_handler.dart';
-import 'package:ig_automated_tools/home_page.dart';
+import 'package:smart_gallery/hive_handler.dart';
+import 'package:smart_gallery/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 {
-    "name": "ig_automated_tools",
-    "short_name": "ig_automated_tools",
+    "name": "smart_gallery",
+    "short_name": "smart_gallery",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
