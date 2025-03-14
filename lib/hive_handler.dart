@@ -6,12 +6,15 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive/hive.dart';
 import 'package:smart_gallery/infra/utils.dart';
 import 'package:smart_gallery/models/media_file_model.dart';
+import 'package:smart_gallery/models/meta_models/accounts.dart';
+import 'package:smart_gallery/models/meta_models/fb_instagram_business_account.dart';
+import 'package:smart_gallery/models/meta_models/paging.dart';
 import 'package:smart_gallery/models/open_ai_key_model.dart';
 import 'package:path_provider/path_provider.dart';
 
 enum HiveBoxName { myBox }
 
-enum HiveBoxField { sharedMediaFiles, openAIAPIKeys }
+enum HiveBoxField { sharedMediaFiles, openAIAPIKeys, fbAccessToken, fb, fbIg }
 
 class HiveHandler {
   static String documentsDirectory = '';
@@ -23,7 +26,18 @@ class HiveHandler {
       ..init(path)
       ..registerAdapter<MediaFileModel>(MediaFileModelAdapter())
       ..registerAdapter<SharedFileType>(SharedFileTypeAdapter())
-      ..registerAdapter<OpenAIKeyModel>(OpenAIKeyModelAdapter());
+      ..registerAdapter<OpenAIKeyModel>(OpenAIKeyModelAdapter())
+      ..registerAdapter<FBAccounts>(FBAccountsAdapter())
+      ..registerAdapter<FBAccountData>(FBAccountDataAdapter())
+      ..registerAdapter<CategoryList>(CategoryListAdapter())
+      ..registerAdapter<Paging>(PagingAdapter())
+      ..registerAdapter<Cursors>(CursorsAdapter())
+      ..registerAdapter<FbInstagramBusinessAccount>(
+        FbInstagramBusinessAccountAdapter(),
+      )
+      ..registerAdapter<InstagramBusinessAccount>(
+        InstagramBusinessAccountAdapter(),
+      );
 
     // reset all OpenAI keys lastUsed fields if they are not expired
     await getOpenAIAPIKeys().then((value) {
@@ -239,5 +253,55 @@ class HiveHandler {
       // Handle any errors that occur
       Fluttertoast.showToast(msg: 'Error: $e');
     }
+  }
+
+  static Future<FBAccountData?> getSelectedFBAccount() async {
+    Box myBox = await _getBox();
+    FBAccountData? temp = await myBox.get(HiveBoxField.fb.name);
+    if (temp == null) {
+      Fluttertoast.showToast(msg: 'No selected account found');
+    }
+    return temp;
+  }
+
+  static Future<FBAccountData?> setFBAccount(FBAccountData account) async {
+    Box myBox = await _getBox();
+    await myBox.put(HiveBoxField.fb.name, account);
+    Fluttertoast.showToast(msg: 'Facebook Account saved as default');
+    return await getSelectedFBAccount();
+  }
+
+  static Future<FbInstagramBusinessAccount?> getSelectedIGAccount() async {
+    Box myBox = await _getBox();
+    FbInstagramBusinessAccount? temp = await myBox.get(HiveBoxField.fbIg.name);
+    if (temp == null) {
+      Fluttertoast.showToast(msg: 'No selected account found');
+    }
+    return temp;
+  }
+
+  static Future<FbInstagramBusinessAccount?> setIGAccount(
+    FbInstagramBusinessAccount account,
+  ) async {
+    Box myBox = await _getBox();
+    await myBox.put(HiveBoxField.fbIg.name, account);
+    Fluttertoast.showToast(msg: 'Instagram Account saved as default');
+    return await getSelectedIGAccount();
+  }
+
+  static Future<String?> getFbAccessToken() async {
+    Box myBox = await _getBox();
+    String? temp = await myBox.get(HiveBoxField.fbAccessToken.name);
+    if (temp == null) {
+      Fluttertoast.showToast(msg: 'Access token not found');
+    }
+    return temp;
+  }
+
+  static Future<String?> setFbAccessToken(String accessToken) async {
+    Box myBox = await _getBox();
+    await myBox.put(HiveBoxField.fbAccessToken.name, accessToken);
+    Fluttertoast.showToast(msg: 'Facebook access token saved');
+    return await getFbAccessToken();
   }
 }
