@@ -27,24 +27,24 @@ class ContentPublishingLimit {
 
 class Datum {
   int quotaUsage;
-  Config config;
+  Config? config;
 
   Datum({required this.quotaUsage, required this.config});
 
   factory Datum.fromJson(Map<String, dynamic> json) => Datum(
     quotaUsage: json["quota_usage"],
-    config: Config.fromJson(json["config"]),
+    config: Config.fromJson(json["config"] ?? {}),
   );
 
   Map<String, dynamic> toJson() => {
     "quota_usage": quotaUsage,
-    "config": config.toJson(),
+    "config": config?.toJson(),
   };
 }
 
 class Config {
-  int quotaTotal;
-  int quotaDuration;
+  int? quotaTotal;
+  int? quotaDuration;
 
   Config({required this.quotaTotal, required this.quotaDuration});
 

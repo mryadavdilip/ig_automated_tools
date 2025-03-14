@@ -5,12 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_gallery/hive_handler.dart';
+import 'package:smart_gallery/models/media_file_model.dart';
 import 'package:smart_gallery/models/meta_models/accounts.dart';
 import 'package:smart_gallery/models/meta_models/content_publishing_limit.dart';
 import 'package:smart_gallery/models/meta_models/error.dart';
 import 'package:smart_gallery/models/meta_models/fb_instagram_business_account.dart';
 
-enum Method { get, post, put, patch, delete }
+enum _Method { get, post, put, patch, delete }
 
 class _APIManager {
   final String baseUrl = 'https://graph.facebook.com/v22.0';
@@ -43,7 +44,7 @@ class _APIManager {
     required String endpoint,
     required Map<String, String> headers,
     dynamic body,
-    Method method = Method.get,
+    _Method method = _Method.get,
     bool bodyBytes = false,
     bool retryOnUnauthorized = true,
   }) async {
@@ -55,17 +56,17 @@ class _APIManager {
     final String? jsonBody = body != null ? jsonEncode(body) : null;
 
     http.Response res = await switch (method) {
-      Method.get => _handleResponse(() => http.get(url, headers: headers)),
-      Method.post => _handleResponse(
+      _Method.get => _handleResponse(() => http.get(url, headers: headers)),
+      _Method.post => _handleResponse(
         () => http.post(url, headers: headers, body: jsonBody),
       ),
-      Method.put => _handleResponse(
+      _Method.put => _handleResponse(
         () => http.put(url, headers: headers, body: jsonBody),
       ),
-      Method.patch => _handleResponse(
+      _Method.patch => _handleResponse(
         () => http.patch(url, headers: headers, body: jsonBody),
       ),
-      Method.delete => _handleResponse(
+      _Method.delete => _handleResponse(
         () => http.delete(url, headers: headers, body: jsonBody),
       ),
     };
@@ -107,7 +108,7 @@ class _APIManager {
     return await _request(
       endpoint: endpoint,
       headers: headers ?? _defaultHeader,
-      method: Method.get,
+      method: _Method.get,
       bodyBytes: bodyBytes ?? false,
     );
   }
@@ -121,7 +122,7 @@ class _APIManager {
       endpoint: endpoint,
       headers: headers ?? _defaultHeader,
       body: body,
-      method: Method.post,
+      method: _Method.post,
     );
   }
 
@@ -134,7 +135,7 @@ class _APIManager {
       endpoint: endpoint,
       headers: headers ?? _defaultHeader,
       body: body,
-      method: Method.put,
+      method: _Method.put,
     );
   }
 
@@ -147,7 +148,7 @@ class _APIManager {
       endpoint: endpoint,
       headers: headers ?? _defaultHeader,
       body: body,
-      method: Method.patch,
+      method: _Method.patch,
     );
   }
 
@@ -160,18 +161,23 @@ class _APIManager {
       endpoint: endpoint,
       headers: headers ?? _defaultHeader,
       body: body,
-      method: Method.delete,
+      method: _Method.delete,
     );
   }
 }
 
-class EndPoints {
+class _EndPoints {
   static const String me = 'me',
       accounts = 'accounts',
-      contentPublishingLimit = 'content_publishing_limit';
+      contentPublishingLimit = 'content_publishing_limit',
+      media = 'media';
 }
 
-class Fields {
+class _Queries {
+  static const String fields = 'fields', imageUrl = 'image_url';
+}
+
+class _Fields {
   static const String instagramBusinessAccount = 'instagram_business_account',
       quotaUsage = 'quota_usage',
       rateLimitSettings = 'rate_limit_settings';
@@ -182,15 +188,17 @@ class InstagramAPIs {
 
   Future<FBAccounts?> getFacebookAccounts() async {
     var res = await _apiManager.get(
-      '${EndPoints.me}/${EndPoints.accounts}',
+      '${_EndPoints.me}/${_EndPoints.accounts}',
       headers: await _apiManager.getDefaultAuthorizedHeaders,
     );
 
     if (res is! http.Response && res is! String && res != null) {
       try {
-        return fbAccountsFromJson(res);
+        return fbAccountsFromJson(jsonEncode(res));
       } catch (e) {
-        Fluttertoast.showToast(msg: errorFromJson(res).error.message);
+        Fluttertoast.showToast(
+          msg: errorFromJson(jsonEncode(res)).error.message,
+        );
       }
     }
     return null;
@@ -203,35 +211,85 @@ class InstagramAPIs {
         facebookAccount ?? await HiveHandler.getSelectedFBAccount();
 
     var res = await _apiManager.get(
-      '${account?.id}?fields=${Fields.instagramBusinessAccount}',
+      '${account?.id}?${_Queries.fields}=${_Fields.instagramBusinessAccount}',
 
       headers: await _apiManager.getDefaultAuthorizedHeaders,
     );
 
     if (res is! http.Response && res is! String && res != null) {
       try {
-        return fbInstagramBusinessAccountFromJson(res);
+        return fbInstagramBusinessAccountFromJson(jsonEncode(res));
       } catch (e) {
-        Fluttertoast.showToast(msg: errorFromJson(res).error.message);
+        Fluttertoast.showToast(
+          msg: errorFromJson(jsonEncode(res)).error.message,
+        );
       }
     }
     return null;
   }
 
   Future<ContentPublishingLimit?> getContentPublishingLimit() async {
-    FBAccountData? account = await HiveHandler.getSelectedFBAccount();
+    FbInstagramBusinessAccount? account =
+        await HiveHandler.getSelectedIGAccount();
 
     var res = await _apiManager.get(
-      '${account?.id}/${EndPoints.contentPublishingLimit}?fields=${Fields.quotaUsage},${Fields.rateLimitSettings}&since=${DateTime.now().millisecondsSinceEpoch / 1000}',
+      '${account?.instagramBusinessAccount.id}/${_EndPoints.contentPublishingLimit}?fields=${_Fields.quotaUsage},${_Fields.rateLimitSettings}&since=${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 86400}',
 
       headers: await _apiManager.getDefaultAuthorizedHeaders,
     );
 
     if (res is! http.Response && res is! String && res != null) {
       try {
-        return contentPublishingLimitFromJson(res);
+        return contentPublishingLimitFromJson(jsonEncode(res));
       } catch (e) {
-        Fluttertoast.showToast(msg: errorFromJson(res).error.message);
+        Fluttertoast.showToast(
+          msg: errorFromJson(jsonEncode(res)).error.message,
+        );
+      }
+    }
+
+    return null;
+  }
+
+  Future<ContentPublishingLimit?> upload(MediaFileModel fileData) async {
+    FbInstagramBusinessAccount? account =
+        await HiveHandler.getSelectedIGAccount();
+
+    var res = switch (fileData.type) {
+      SharedFileType.image => await _apiManager.post(
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}?${_Queries.imageUrl}=',
+
+        headers: await _apiManager.getDefaultAuthorizedHeaders,
+      ),
+      SharedFileType.video => await _apiManager.get(
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}',
+
+        headers: await _apiManager.getDefaultAuthorizedHeaders,
+      ),
+      SharedFileType.url => await _apiManager.get(
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}',
+
+        headers: await _apiManager.getDefaultAuthorizedHeaders,
+      ),
+      SharedFileType.text => await _apiManager.get(
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}',
+
+        headers: await _apiManager.getDefaultAuthorizedHeaders,
+      ),
+      SharedFileType.file => await _apiManager.get(
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}',
+
+        headers: await _apiManager.getDefaultAuthorizedHeaders,
+      ),
+    };
+
+    if (res is! http.Response && res is! String && res != null) {
+      try {
+        return contentPublishingLimitFromJson(jsonEncode(res));
+      } catch (e) {
+        Fluttertoast.showToast(
+          msg: errorFromJson(jsonEncode(res)).error.message,
+        );
       }
     }
 

@@ -14,7 +14,14 @@ import 'package:path_provider/path_provider.dart';
 
 enum HiveBoxName { myBox }
 
-enum HiveBoxField { sharedMediaFiles, openAIAPIKeys, fbAccessToken, fb, fbIg }
+enum HiveBoxField {
+  sharedMediaFiles,
+  localServerDirectory,
+  openAIAPIKeys,
+  fbAccessToken,
+  fb,
+  fbIg,
+}
 
 class HiveHandler {
   static String documentsDirectory = '';
@@ -133,6 +140,24 @@ class HiveHandler {
     temp.removeWhere((element) => element.path == file.path);
     await myBox.put(HiveBoxField.sharedMediaFiles.name, temp);
     Fluttertoast.showToast(msg: 'file deleted');
+  }
+
+  static Future<String?> getLocalServerDirectory() async {
+    Box myBox = await _getBox();
+    String? temp = await myBox.get(HiveBoxField.localServerDirectory.name);
+
+    if (temp == null) {
+      Fluttertoast.showToast(msg: 'Local server directory not found');
+    }
+
+    return temp;
+  }
+
+  static Future<String?> setLocalServerDirectory(String path) async {
+    Box myBox = await _getBox();
+    await myBox.put(HiveBoxField.localServerDirectory.name, path);
+
+    return await getLocalServerDirectory();
   }
 
   static Future<OpenAIKeyModel> getOpenAIKey() async {

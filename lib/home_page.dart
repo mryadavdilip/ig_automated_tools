@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:smart_gallery/chatgpt_handler.dart';
+import 'package:smart_gallery/local_server_handler.dart';
 import 'package:smart_gallery/hive_handler.dart';
 import 'package:smart_gallery/infra/utils.dart';
 import 'package:smart_gallery/instagram_handler.dart';
@@ -111,10 +113,6 @@ class _HomePageState extends State<HomePage> {
                             child: Text('Facebook Accounts'),
                           ),
                           PopupMenuItem(
-                            onTap: _showOpenAIKeys,
-                            child: Text('OpenAI API keys'),
-                          ),
-                          PopupMenuItem(
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -124,6 +122,14 @@ class _HomePageState extends State<HomePage> {
                               );
                             },
                             child: Text('Instagram'),
+                          ),
+                          PopupMenuItem(
+                            onTap: LocalServerHandler().pickDirectory,
+                            child: Text('Change Local Server Directory'),
+                          ),
+                          PopupMenuItem(
+                            onTap: _showOpenAIKeys,
+                            child: Text('OpenAI API keys'),
                           ),
                           PopupMenuItem(
                             onTap: _showAbout,
@@ -237,6 +243,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     HiveHandler.dispose();
+    LocalServerHandler().dispose();
     super.dispose();
   }
 
@@ -263,8 +270,15 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    // run local server
+    await LocalServerHandler().toggleServer();
+    String? hostedDirectory = await HiveHandler.getLocalServerDirectory();
+
     // Post files
     for (var file in files) {
+      File temp = await File(file.path).copy('$hostedDirectory/${file.name}');
+      log('file copied to ${temp.path}');
+      // await InstagramAPIs().upload(file);
       // await HiveHandler.removeFile(file);
     }
     setState(() {});
@@ -300,33 +314,33 @@ class _HomePageState extends State<HomePage> {
                     shrinkWrap: true,
                     itemCount: fbAccounts.data.length,
                     itemBuilder: (_, index) {
-                      FBAccountData? account = fbAccounts?.data[index];
+                      FBAccountData? account = fbAccounts.data[index];
                       return Row(
                         children: [
                           ConstrainedBox(
                             constraints: BoxConstraints(maxWidth: 150),
                             child: ListTile(
                               onTap: () async {
-                                await HiveHandler.setFBAccount(account!);
+                                await HiveHandler.setFBAccount(account);
 
                                 if (!mounted) return;
                                 Navigator.pop(context);
 
                                 await _showInstagramAccounts();
                               },
-                              title: Text('${account?.name}'),
+                              title: Text(account.name),
                               subtitle: GestureDetector(
                                 onTap: () async {
                                   await Clipboard.setData(
-                                    ClipboardData(text: '${account?.id}'),
+                                    ClipboardData(text: account.id),
                                   );
                                   Fluttertoast.showToast(
                                     msg: 'Account id copied to clipboard',
                                   );
                                 },
-                                child: Text('${account?.id}'),
+                                child: Text(account.id),
                               ),
-                              selected: selectedFBAccount?.id == account?.id,
+                              selected: selectedFBAccount?.id == account.id,
                             ),
                           ),
                         ],
@@ -394,7 +408,7 @@ class _HomePageState extends State<HomePage> {
                       constraints: BoxConstraints(maxWidth: 150),
                       child: ListTile(
                         onTap: () async {
-                          await HiveHandler.setIGAccount(instagramAccount!);
+                          await HiveHandler.setIGAccount(instagramAccount);
 
                           if (!mounted) return;
                           Navigator.popUntil(context, (route) => route.isFirst);
@@ -405,7 +419,7 @@ class _HomePageState extends State<HomePage> {
                             await Clipboard.setData(
                               ClipboardData(
                                 text:
-                                    instagramAccount!
+                                    instagramAccount
                                         .instagramBusinessAccount
                                         .id,
                               ),
@@ -419,7 +433,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         selected:
-                            selectedIGAccount?.id ==
+                            selectedIGAccount?.instagramBusinessAccount.id ==
                             instagramAccount.instagramBusinessAccount.id,
                       ),
                     )

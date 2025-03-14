@@ -11,6 +11,7 @@ class InstagramPage extends StatefulWidget {
 }
 
 class _InstagramPageState extends State<InstagramPage> {
+  bool isLoading = false;
   ContentPublishingLimit? contentPublishingLimit;
 
   @override
@@ -22,21 +23,30 @@ class _InstagramPageState extends State<InstagramPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Text(
-            'Quota Usage: ${contentPublishingLimit!.data.first.quotaUsage} / ${contentPublishingLimit!.data.first.config.quotaTotal}',
-          ),
-          Text(
-            'Duration: ${Utils.durationToHMS(Duration(seconds: contentPublishingLimit!.data.first.config.quotaDuration))}',
-          ),
-        ],
-      ),
+      body:
+          isLoading
+              ? Center(child: CircularProgressIndicator())
+              : SafeArea(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Text(
+                        'Quota Usage: ${contentPublishingLimit?.data.first.quotaUsage} / ${contentPublishingLimit?.data.first.config?.quotaTotal}\nDuration: ${Utils.durationToHMS(Duration(seconds: contentPublishingLimit?.data.first.config?.quotaDuration ?? 0))}',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
     );
   }
 
   void _loadData() async {
+    isLoading = true;
+    setState(() {});
+
     contentPublishingLimit = await InstagramAPIs().getContentPublishingLimit();
+    isLoading = false;
     setState(() {});
   }
 }
