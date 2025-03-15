@@ -1,0 +1,24 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "banjara-fb2ba",
+          "appId": "1:724100109241:android:981ef7d94d0e6bc2715c68",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "banjara-fb2ba",
+          "configurations": {
+            "android": "1:724100109241:android:981ef7d94d0e6bc2715c68"
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

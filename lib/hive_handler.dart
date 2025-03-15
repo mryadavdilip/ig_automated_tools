@@ -17,6 +17,7 @@ enum HiveBoxName { myBox }
 enum HiveBoxField {
   sharedMediaFiles,
   localServerDirectory,
+  hostedCopiedFiles,
   openAIAPIKeys,
   fbAccessToken,
   fb,
@@ -160,6 +161,36 @@ class HiveHandler {
     return await getLocalServerDirectory();
   }
 
+  static Future<List<String>> getHostedCopiedFilesEntries() async {
+    Box myBox = await _getBox();
+    List<String> temp =
+        await myBox.get(HiveBoxField.hostedCopiedFiles.name) ?? [];
+
+    if (temp.isEmpty) {
+      Fluttertoast.showToast(msg: 'No copied files found');
+    }
+    return temp;
+  }
+
+  static Future<void> addCopiedFileEntry(String destPath) async {
+    Box myBox = await _getBox();
+    List<String> temp = await getHostedCopiedFilesEntries();
+    temp.add(destPath);
+    await myBox.put(HiveBoxField.hostedCopiedFiles.name, temp);
+
+    Fluttertoast.showToast(msg: 'Copied file to: $destPath');
+  }
+
+  static Future<void> deleteCopiedFileEntry(String destPath) async {
+    Box myBox = await _getBox();
+    List<String> temp = await getHostedCopiedFilesEntries();
+    bool isRemoved = temp.remove(destPath);
+    if (isRemoved) {
+      await myBox.put(HiveBoxField.hostedCopiedFiles.name, temp);
+      Fluttertoast.showToast(msg: 'Removed file: $destPath');
+    }
+  }
+
   static Future<OpenAIKeyModel> getOpenAIKey() async {
     List<OpenAIKeyModel> temp =
         (await getOpenAIAPIKeys())
@@ -193,7 +224,7 @@ class HiveHandler {
     return temp;
   }
 
-  static Future addOpenAIAPIKey(String key) async {
+  static Future<void> addOpenAIAPIKey(String key) async {
     Box myBox = await _getBox();
 
     List<OpenAIKeyModel> temp = await getOpenAIAPIKeys();
@@ -209,7 +240,7 @@ class HiveHandler {
     Fluttertoast.showToast(msg: 'OpenAI API key added');
   }
 
-  static Future removeOpenAIAPIKey(String key) async {
+  static Future<void> removeOpenAIAPIKey(String key) async {
     Box myBox = await _getBox();
 
     List<OpenAIKeyModel> temp = await getOpenAIAPIKeys();

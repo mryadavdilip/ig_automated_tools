@@ -1,10 +1,12 @@
-import 'dart:developer';
 import 'dart:io';
-
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:smart_gallery/chatgpt_handler.dart';
 import 'package:smart_gallery/local_server_handler.dart';
 import 'package:smart_gallery/hive_handler.dart';
@@ -57,7 +59,6 @@ class _HomePageState extends State<HomePage> {
               Row(
                 children: [
                   Spacer(),
-
                   selectedFiles.isEmpty
                       ? ElevatedButton(
                         onPressed: _bulkPost,
@@ -67,77 +68,37 @@ class _HomePageState extends State<HomePage> {
                         onPressed: _processFiles,
                         child: const Text('Extract -gpt4o'),
                       ),
-
                   Spacer(),
                   selectedFiles.isEmpty
                       ? ElevatedButton(
-                        onPressed: () async {
-                          await HiveHandler.getFiles().then((v) async {
-                            for (var e in v) {
-                              await HiveHandler.removeFile(e);
-                            }
-                          });
-                          setState(() {});
-                        },
+                        onPressed: _hostOrStopDirectory,
+                        child: Icon(
+                          LocalServerHandler().ftpServer == null
+                              ? Icons.storage_sharp
+                              : Icons.stop,
+                        ),
+                      )
+                      : ElevatedButton(
+                        onPressed: _hostOrStopSelectedFiles,
+                        child: Icon(
+                          LocalServerHandler().ftpServer == null
+                              ? Icons.create_new_folder_outlined
+                              : Icons.stop,
+                        ),
+                      ),
+                  Spacer(),
+                  selectedFiles.isEmpty
+                      ? ElevatedButton(
+                        onPressed: _clearAllFiles,
                         child: const Text('Clear all files'),
                       )
                       : IconButton(
-                        onPressed: () async {
-                          for (var file in selectedFiles) {
-                            await HiveHandler.removeFile(file);
-                          }
-                          selectedFiles.clear();
-                          setState(() {});
-                        },
+                        onPressed: _deleteSelectedFiles,
                         icon: Icon(Icons.delete),
                       ),
                   Spacer(),
                   IconButton(
-                    onPressed: () {
-                      showMenu(
-                        context: context,
-                        constraints: BoxConstraints(
-                          minWidth: 100,
-                          maxWidth: 200,
-                        ),
-                        position: RelativeRect.fromLTRB(200, 0, 0, 600),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(20),
-                            bottomRight: Radius.circular(20),
-                          ),
-                        ),
-                        items: [
-                          PopupMenuItem(
-                            onTap: _showUserFBAccounts,
-                            child: Text('Facebook Accounts'),
-                          ),
-                          PopupMenuItem(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => InstagramPage(),
-                                ),
-                              );
-                            },
-                            child: Text('Instagram'),
-                          ),
-                          PopupMenuItem(
-                            onTap: LocalServerHandler().pickDirectory,
-                            child: Text('Change Local Server Directory'),
-                          ),
-                          PopupMenuItem(
-                            onTap: _showOpenAIKeys,
-                            child: Text('OpenAI API keys'),
-                          ),
-                          PopupMenuItem(
-                            onTap: _showAbout,
-                            child: Text('About'),
-                          ),
-                        ],
-                      );
-                    },
+                    onPressed: _showPopupMenu,
                     icon: Icon(Icons.more_vert),
                   ),
                 ],
@@ -193,44 +154,148 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               SizedBox(height: 30),
+              Text('Saved Files'),
               FutureBuilder(
                 future: HiveHandler.getFiles(),
                 builder: (context, snapshot) {
-                  return snapshot.hasData &&
-                          (snapshot.data?.isNotEmpty ?? false)
-                      ? SizedBox(
-                        height: 500,
-                        width: 300,
-                        child: ListView.builder(
-                          itemCount: snapshot.data?.length,
-                          itemBuilder: (context, index) {
-                            return ListTile(
-                              onTap: () {
-                                selectedFiles.contains(snapshot.data![index])
-                                    ? selectedFiles.remove(
-                                      snapshot.data![index],
-                                    )
-                                    : selectedFiles.add(snapshot.data![index]);
-                                setState(() {});
+                  if (snapshot.hasData &&
+                      (snapshot.data?.isNotEmpty ?? false)) {
+                    bool isSelectedAll = true;
+                    for (var savedFile in snapshot.data!) {
+                      if (!selectedFiles.contains(savedFile)) {
+                        isSelectedAll = false;
+                        break;
+                      }
+                    }
+
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () async {
+                                await LocalServerHandler().requestPermission();
+                                FilePicker.platform.pickFiles().then((v) async {
+                                  if (v == null) return;
+
+                                  await HiveHandler.addFiles(
+                                    v.files.map((e) {
+                                      String extension =
+                                          e.path!
+                                              .split('/')
+                                              .last
+                                              .split('.')
+                                              .last;
+                                      SharedFileType? type;
+                                      if (FileExtentions
+                                          .commonVideoFileExtentions
+                                          .contains(extension)) {
+                                        type = SharedFileType.video;
+                                      } else if (FileExtentions
+                                          .commonImageExtensions
+                                          .contains(extension)) {
+                                        type = SharedFileType.image;
+                                      } else {
+                                        type = SharedFileType.file;
+                                      }
+                                      return MediaFileModel(
+                                        path: e.path!,
+                                        type: type,
+                                      );
+                                    }).toList(),
+                                  );
+                                });
                               },
-                              onLongPress: () async {
-                                await HiveHandler.removeFile(
-                                  snapshot.data![index],
-                                );
-                                selectedFiles.remove(snapshot.data![index]);
-                                selectedFiles.clear();
-                                setState(() {});
-                              },
-                              title: Text('${snapshot.data?[index].name}'),
-                              subtitle: Text('${snapshot.data?[index].path}'),
-                              selected: selectedFiles.contains(
-                                snapshot.data![index],
+                              icon: Icon(Icons.attach_file),
+                            ),
+                            SizedBox(width: 30),
+                            if (selectedFiles.isNotEmpty)
+                              IconButton(
+                                onPressed: _shareFiles,
+                                icon: Icon(Icons.share),
                               ),
-                            );
-                          },
+                            SizedBox(width: 30),
+                            if (selectedFiles.isNotEmpty)
+                              Checkbox(
+                                value: isSelectedAll,
+                                onChanged: (_) {
+                                  if (isSelectedAll) {
+                                    selectedFiles.clear();
+                                  } else {
+                                    selectedFiles.clear();
+                                    selectedFiles.addAll(snapshot.data!);
+                                  }
+                                  setState(() {});
+                                },
+                              ),
+                          ],
                         ),
-                      )
-                      : const Center(child: Text('No files available'));
+                        SizedBox(height: 20),
+                        SizedBox(
+                          height: 500,
+                          width: 300,
+                          child: ListView.builder(
+                            itemCount: snapshot.data?.length,
+                            itemBuilder: (context, index) {
+                              return ListTile(
+                                onTap: () async {
+                                  var item = snapshot.data![index];
+                                  if (selectedFiles.isNotEmpty) {
+                                    selectedFiles.contains(item)
+                                        ? selectedFiles.remove(item)
+                                        : selectedFiles.add(item);
+                                    setState(() {});
+                                  } else {
+                                    if (item.type == SharedFileType.text ||
+                                        item.type == SharedFileType.url) {
+                                      Clipboard.setData(
+                                        ClipboardData(
+                                          text:
+                                              await File(
+                                                item.path,
+                                              ).readAsString(),
+                                        ),
+                                      ).then((_) {
+                                        Fluttertoast.showToast(
+                                          msg:
+                                              'Text/Url Content copied to clipboard',
+                                        );
+                                      });
+                                    } else {
+                                      OpenFile.open(
+                                        item.path,
+                                        type:
+                                            item.path
+                                                .split('/')
+                                                .last
+                                                .split('.')
+                                                .last,
+                                      );
+                                    }
+                                  }
+                                },
+                                onLongPress: () async {
+                                  var item = snapshot.data![index];
+
+                                  selectedFiles.contains(item)
+                                      ? selectedFiles.remove(item)
+                                      : selectedFiles.add(item);
+                                  setState(() {});
+                                },
+                                title: Text('${snapshot.data?[index].name}'),
+                                subtitle: Text('${snapshot.data?[index].path}'),
+                                selected: selectedFiles.contains(
+                                  snapshot.data![index],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return const Center(child: Text('No files available'));
+                  }
                 },
               ),
             ],
@@ -270,18 +335,132 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // run local server
-    await LocalServerHandler().toggleServer();
-    String? hostedDirectory = await HiveHandler.getLocalServerDirectory();
-
     // Post files
     for (var file in files) {
-      File temp = await File(file.path).copy('$hostedDirectory/${file.name}');
-      log('file copied to ${temp.path}');
+      //
       // await InstagramAPIs().upload(file);
       // await HiveHandler.removeFile(file);
     }
     setState(() {});
+  }
+
+  void _processFiles() async {
+    for (var e in selectedFiles) {
+      ChatgptHandler().getChatResponse(
+        await File(e.path).readAsString(),
+      ); // todo: complete this
+    }
+  }
+
+  void _hostOrStopDirectory() async {
+    if (LocalServerHandler().ftpServer == null) {
+      await LocalServerHandler().toggleServer();
+    } else {
+      await LocalServerHandler().stopServer();
+    }
+    setState(() {});
+  }
+
+  void _hostOrStopSelectedFiles() async {
+    if (LocalServerHandler().ftpServer == null) {
+      String? directory = await LocalServerHandler().pickDirectory();
+      if (directory == null) return;
+
+      for (var file in selectedFiles) {
+        await File(file.path)
+            .copy('${await HiveHandler.getLocalServerDirectory()}/${file.name}')
+            .then((file) async {
+              await HiveHandler.addCopiedFileEntry(file.path);
+            });
+      }
+      await LocalServerHandler().toggleServer();
+    } else {
+      await LocalServerHandler().stopServer();
+    }
+
+    setState(() {});
+  }
+
+  void _clearAllFiles() async {
+    await HiveHandler.getFiles().then((v) async {
+      for (var e in v) {
+        await HiveHandler.removeFile(e);
+      }
+    });
+    setState(() {});
+  }
+
+  void _deleteSelectedFiles() async {
+    for (var file in selectedFiles) {
+      await HiveHandler.removeFile(file);
+    }
+    selectedFiles.clear();
+    setState(() {});
+  }
+
+  void _shareFiles() async {
+    List<MediaFileModel> urls =
+        selectedFiles.where((e) => e.type == SharedFileType.url).toList();
+    List<MediaFileModel> texts =
+        selectedFiles.where((e) => e.type == SharedFileType.text).toList();
+    List<MediaFileModel> files = selectedFiles;
+
+    files.removeWhere((e) => urls.contains(e) || texts.contains(e));
+
+    if (files.isNotEmpty) {
+      await Share.shareXFiles(files.map((e) => XFile(e.path)).toList());
+    }
+
+    if (urls.isNotEmpty) {
+      await Share.share(urls.join(' ||| '));
+    }
+
+    if (texts.isNotEmpty) {
+      await Share.share(texts.join(' ||| '));
+    }
+  }
+
+  void _showPopupMenu() {
+    showMenu(
+      context: context,
+      constraints: BoxConstraints(minWidth: 100, maxWidth: 200),
+      position: RelativeRect.fromLTRB(200, 0, 0, 600),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: _showUserFBAccounts,
+          child: Text('Facebook Accounts'),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => InstagramPage()),
+            );
+          },
+          child: Text('Instagram'),
+        ),
+        PopupMenuItem(
+          onTap: LocalServerHandler().pickDirectory,
+          child: Text('Change Local Server Directory'),
+        ),
+        PopupMenuItem(
+          onTap: _clearCopiedFiles,
+          child: Text('Clear copied files'),
+        ),
+        PopupMenuItem(
+          onTap: _hostMultipleDirectories,
+          child: Text('Host Multiple Directories'),
+        ),
+        PopupMenuItem(onTap: _showOpenAIKeys, child: Text('OpenAI API keys')),
+        PopupMenuItem(onTap: _showAbout, child: Text('About')),
+      ],
+    );
   }
 
   Future<void> _showUserFBAccounts() async {
@@ -448,10 +627,170 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _processFiles() async {
-    for (var e in selectedFiles) {
-      ChatgptHandler().getChatResponse(await File(e.path).readAsString());
-    }
+  void _clearCopiedFiles() {
+    HiveHandler.getHostedCopiedFilesEntries().then((entries) async {
+      for (var element in entries) {
+        if (await File(element).exists()) {
+          File(element).delete().then((fse) async {
+            if (!await fse.exists()) {
+              HiveHandler.deleteCopiedFileEntry(element);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  void _hostMultipleDirectories() {
+    List<String> directories = [];
+    final TextEditingController usernameController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder:
+          (_) => StatefulBuilder(
+            builder: (ctx, setStat) {
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Host multiple directories'),
+                      SizedBox(height: 30),
+                      Wrap(
+                        children: [
+                          ...directories.map(
+                            (e) => Row(
+                              children: [
+                                Text(e),
+                                SizedBox(width: 10),
+                                IconButton(
+                                  onPressed: () {
+                                    directories.remove(e);
+                                    setStat(() {});
+                                  },
+                                  icon: Icon(Icons.remove),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 20),
+                          MaterialButton(
+                            onPressed: () async {
+                              await LocalServerHandler().requestPermission();
+                              if (await Permission
+                                      .manageExternalStorage
+                                      .isPermanentlyDenied ||
+                                  await Permission
+                                      .manageExternalStorage
+                                      .isDenied) {
+                                Fluttertoast.showToast(
+                                  msg: 'Storage permission denied',
+                                );
+                                return;
+                              }
+
+                              String? path =
+                                  await FilePicker.platform.getDirectoryPath();
+                              if (path != null) {
+                                directories.add(path);
+                                setStat(() {});
+                              }
+                            },
+                            child: Text('Add directory +'),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 30),
+                      MaterialButton(
+                        minWidth: 150,
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder:
+                                (_) => Dialog(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        TextField(
+                                          controller: usernameController,
+                                          decoration: InputDecoration(
+                                            hintText: 'Username',
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        TextField(
+                                          controller: passwordController,
+                                          decoration: InputDecoration(
+                                            hintText: 'Password',
+                                          ),
+                                        ),
+                                        SizedBox(),
+                                        MaterialButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text('Done'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                          );
+                        },
+                        child: Text('Require authentication? (optional)'),
+                      ),
+                      SizedBox(height: 30),
+                      MaterialButton(
+                        minWidth: 150,
+                        onPressed: () async {
+                          if (LocalServerHandler().ftpServer == null) {
+                            await LocalServerHandler().toggleServer(
+                              directories: directories,
+                              auth: Auth(
+                                usernameController.text,
+                                passwordController.text,
+                              ),
+                            );
+                          } else {
+                            await LocalServerHandler().stopServer();
+                          }
+                          setStat(() {});
+                        },
+                        child:
+                            LocalServerHandler().ftpServer == null
+                                ? Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Host'),
+                                    Icon(Icons.wifi_tethering),
+                                  ],
+                                )
+                                : Row(
+                                  children: [
+                                    Text('Stop server'),
+                                    Icon(Icons.stop),
+                                  ],
+                                ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+    );
   }
 
   void _showOpenAIKeys() {

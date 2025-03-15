@@ -10,6 +10,12 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_gallery/hive_handler.dart';
 
+class Auth {
+  final String username;
+  final String password;
+  Auth(this.username, this.password);
+}
+
 class LocalServerHandler {
   // Make singleton
   static final LocalServerHandler _instance = LocalServerHandler._internal();
@@ -23,7 +29,7 @@ class LocalServerHandler {
   ReceivePort? receivePort;
   int? port;
 
-  Future<void> _requestPermission() async {
+  Future<void> requestPermission() async {
     if (await Permission.manageExternalStorage.isDenied) {
       await Permission.manageExternalStorage.request();
       await Permission.storage.request();
@@ -38,7 +44,7 @@ class LocalServerHandler {
   }
 
   Future<String?> pickDirectory({bool change = true}) async {
-    await _requestPermission();
+    await requestPermission();
     if (await Permission.manageExternalStorage.isPermanentlyDenied ||
         await Permission.manageExternalStorage.isDenied) {
       Fluttertoast.showToast(msg: 'Storage permission denied');
@@ -60,7 +66,13 @@ class LocalServerHandler {
     return null;
   }
 
-  Future<void> toggleServer() async {
+  Future<void> stopServer() async {
+    await ftpServer?.stop();
+    ftpServer = null;
+    return;
+  }
+
+  Future<void> toggleServer({List<String>? directories, Auth? auth}) async {
     String? serverDirectory = await pickDirectory(change: false);
 
     if (serverDirectory == null) return;
@@ -70,6 +82,8 @@ class LocalServerHandler {
       sharedDirectories: [serverDirectory],
       serverType: ServerType.readAndWrite,
       logFunction: (p0) => debugPrint(p0),
+      username: auth?.username,
+      password: auth?.password,
     );
 
     ftpServer = server;

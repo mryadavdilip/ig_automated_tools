@@ -12,3 +12,41 @@ class Utils {
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 }
+
+class FileExtentions {
+  static final List<String> commonVideoFileExtentions = [
+    'mp4',
+    'mov',
+    'avi',
+    'wmv',
+    'webm',
+    'mkv',
+    'flv',
+    'mpg',
+  ];
+  static final List<String> commonAudioFileExtentions = [
+    'wav',
+    'mp3',
+    'aac',
+    'ogg',
+    'aif',
+    'aiff',
+    'm4a',
+    'wma',
+  ];
+  static final List<String> commonImageExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'svg',
+    'tif',
+    'tiff',
+    'bmp',
+    'eps',
+    'webp',
+    'heic',
+    'avif',
+    'indd',
+  ];
+}

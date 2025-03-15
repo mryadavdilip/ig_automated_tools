@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "724100109241",
+    "firebase_url": "https://banjara-fb2ba-default-rtdb.firebaseio.com",
+    "project_id": "banjara-fb2ba",
+    "storage_bucket": "banjara-fb2ba.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:724100109241:android:981ef7d94d0e6bc2715c68",
+        "android_client_info": {
+          "package_name": "com.example.smart_gallery"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "724100109241-8qfp6gtj6dqevbd3n842g7bviuf14bep.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_V4Eakf6lHk-OC0pHIv_cCS68xwhdEUY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "724100109241-8qfp6gtj6dqevbd3n842g7bviuf14bep.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "724100109241-tsj13b87ue5tbmffoakuq7ou6l9vivie.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.hsdMedico"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
