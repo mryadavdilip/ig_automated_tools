@@ -1,3 +1,7 @@
+import 'package:firebase_storage/firebase_storage.dart';
+
+final FirebaseStorage storage = FirebaseStorage.instance;
+
 class Utils {
   static bool isDateExpired(DateTime date) {
     return DateTime.fromMillisecondsSinceEpoch(

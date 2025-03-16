@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,7 +155,49 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               SizedBox(height: 30),
-              Text('Saved Files'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Spacer(),
+                    Text('Saved Files'),
+                    Spacer(),
+                    IconButton(
+                      onPressed: () async {
+                        await LocalServerHandler().requestPermission();
+                        FilePicker.platform.pickFiles(allowMultiple: true).then(
+                          (v) async {
+                            if (v == null) return;
+
+                            await HiveHandler.addFiles(
+                              v.files.map((e) {
+                                String extension =
+                                    e.path!.split('/').last.split('.').last;
+                                SharedFileType? type;
+                                if (FileExtentions.commonVideoFileExtentions
+                                    .contains(extension)) {
+                                  type = SharedFileType.video;
+                                } else if (FileExtentions.commonImageExtensions
+                                    .contains(extension)) {
+                                  type = SharedFileType.image;
+                                } else {
+                                  type = SharedFileType.file;
+                                }
+                                return MediaFileModel(
+                                  path: e.path!,
+                                  type: type,
+                                );
+                              }).toList(),
+                            );
+                            setState(() {});
+                          },
+                        );
+                      },
+                      icon: Icon(Icons.attach_file),
+                    ),
+                  ],
+                ),
+              ),
               FutureBuilder(
                 future: HiveHandler.getFiles(),
                 builder: (context, snapshot) {
@@ -172,43 +215,6 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Row(
                           children: [
-                            IconButton(
-                              onPressed: () async {
-                                await LocalServerHandler().requestPermission();
-                                FilePicker.platform.pickFiles().then((v) async {
-                                  if (v == null) return;
-
-                                  await HiveHandler.addFiles(
-                                    v.files.map((e) {
-                                      String extension =
-                                          e.path!
-                                              .split('/')
-                                              .last
-                                              .split('.')
-                                              .last;
-                                      SharedFileType? type;
-                                      if (FileExtentions
-                                          .commonVideoFileExtentions
-                                          .contains(extension)) {
-                                        type = SharedFileType.video;
-                                      } else if (FileExtentions
-                                          .commonImageExtensions
-                                          .contains(extension)) {
-                                        type = SharedFileType.image;
-                                      } else {
-                                        type = SharedFileType.file;
-                                      }
-                                      return MediaFileModel(
-                                        path: e.path!,
-                                        type: type,
-                                      );
-                                    }).toList(),
-                                  );
-                                });
-                              },
-                              icon: Icon(Icons.attach_file),
-                            ),
-                            SizedBox(width: 30),
                             if (selectedFiles.isNotEmpty)
                               IconButton(
                                 onPressed: _shareFiles,
@@ -262,15 +268,7 @@ class _HomePageState extends State<HomePage> {
                                         );
                                       });
                                     } else {
-                                      OpenFile.open(
-                                        item.path,
-                                        type:
-                                            item.path
-                                                .split('/')
-                                                .last
-                                                .split('.')
-                                                .last,
-                                      );
+                                      OpenFile.open(item.path);
                                     }
                                   }
                                 },
@@ -335,10 +333,144 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // Post files
-    for (var file in files) {
+    // upload to firebase storage
+    var uploadingFiles = files.map(
+      (file) =>
+          storage.ref('SmartGallery').child(file.name).putFile(File(file.path)),
+    );
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) {
+        List<String?> completed = [];
+        List<String?> canceledOrError = [];
+
+        return Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Uploading to storage...\t${completed.toSet().length}/${uploadingFiles.length}',
+                  ),
+                  ...uploadingFiles.map(
+                    (uploadTask) => StreamBuilder(
+                      stream: uploadTask.asStream(),
+                      builder: (_, snapshot) {
+                        String? name = snapshot.data?.metadata?.name;
+                        if (snapshot.data != null) {
+                          if (snapshot.data?.state == TaskState.success &&
+                              !completed.contains(name)) {
+                            completed.add(name);
+                          } else if ((snapshot.data?.state ==
+                                      TaskState.canceled ||
+                                  snapshot.data?.state == TaskState.error) &&
+                              !canceledOrError.contains(name)) {
+                            canceledOrError.add(name);
+                          }
+
+                          if (completed.toSet().length +
+                                  canceledOrError.toSet().length ==
+                              uploadingFiles.length) {
+                            Navigator.pop(context);
+                          }
+                        }
+
+                        return Row(
+                          children: [
+                            Text('$name'),
+                            Spacer(),
+                            CircularProgressIndicator(
+                              value:
+                                  (snapshot.data?.bytesTransferred ?? 0) /
+                                  (snapshot.data?.totalBytes ?? 0),
+                            ),
+                            switch (snapshot.data?.state ?? TaskState.running) {
+                              TaskState.canceled => Icon(
+                                Icons.close,
+                                color: Colors.red,
+                              ),
+                              TaskState.error => Icon(
+                                Icons.error,
+                                color: Colors.red,
+                              ),
+                              TaskState.paused => Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: uploadTask.resume,
+                                    icon: Icon(
+                                      Icons.play_arrow,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: uploadTask.cancel,
+                                    icon: Icon(
+                                      Icons.cancel,
+                                      color: Colors.amberAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TaskState.running => Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: uploadTask.pause,
+                                    icon: Icon(Icons.stop, color: Colors.green),
+                                  ),
+                                  IconButton(
+                                    onPressed: uploadTask.cancel,
+                                    icon: Icon(
+                                      Icons.cancel,
+                                      color: Colors.amberAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TaskState.success => Icon(
+                                Icons.done,
+                                color: Colors.blue,
+                              ),
+                            },
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  MaterialButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text('Continue'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    List<MediaFileModel?> uploadedFiles = []; // {mediaFileModel, url}
+    for (UploadTask uploadTask in uploadingFiles) {
+      TaskSnapshot snapshot = await uploadTask.asStream().last;
+      if (snapshot.state == TaskState.success) {
+        uploadedFiles.add(
+          files.where((f) => f.name == snapshot.ref.name).firstOrNull
+            ?..message = await snapshot.ref.getDownloadURL(),
+        );
+      }
+    }
+
+    // Post files to Instagram
+    for (MediaFileModel? file in uploadedFiles) {
       //
-      // await InstagramAPIs().upload(file);
+      if (file == null) continue;
+      await InstagramAPIs().upload(file);
       // await HiveHandler.removeFile(file);
     }
     setState(() {});
@@ -658,133 +790,151 @@ class _HomePageState extends State<HomePage> {
                     bottomRight: Radius.circular(20),
                   ),
                 ),
-                child: Padding(
-                  padding: EdgeInsets.all(10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Host multiple directories'),
-                      SizedBox(height: 30),
-                      Wrap(
-                        children: [
-                          ...directories.map(
-                            (e) => Row(
-                              children: [
-                                Text(e),
-                                SizedBox(width: 10),
-                                IconButton(
-                                  onPressed: () {
-                                    directories.remove(e);
-                                    setStat(() {});
-                                  },
-                                  icon: Icon(Icons.remove),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: 20),
-                          MaterialButton(
-                            onPressed: () async {
-                              await LocalServerHandler().requestPermission();
-                              if (await Permission
-                                      .manageExternalStorage
-                                      .isPermanentlyDenied ||
-                                  await Permission
-                                      .manageExternalStorage
-                                      .isDenied) {
-                                Fluttertoast.showToast(
-                                  msg: 'Storage permission denied',
-                                );
-                                return;
-                              }
-
-                              String? path =
-                                  await FilePicker.platform.getDirectoryPath();
-                              if (path != null) {
-                                directories.add(path);
-                                setStat(() {});
-                              }
-                            },
-                            child: Text('Add directory +'),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 30),
-                      MaterialButton(
-                        minWidth: 150,
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder:
-                                (_) => Dialog(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(10),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        TextField(
-                                          controller: usernameController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Username',
-                                          ),
-                                        ),
-                                        SizedBox(height: 10),
-                                        TextField(
-                                          controller: passwordController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Password',
-                                          ),
-                                        ),
-                                        SizedBox(),
-                                        MaterialButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text('Done'),
-                                        ),
-                                      ],
+                child: SingleChildScrollView(
+                  reverse: true,
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Host multiple directories'),
+                        SizedBox(height: 30),
+                        Wrap(
+                          children: [
+                            ...directories.map(
+                              (e) => Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: 220),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      reverse: true,
+                                      child: Text(e),
                                     ),
                                   ),
-                                ),
-                          );
-                        },
-                        child: Text('Require authentication? (optional)'),
-                      ),
-                      SizedBox(height: 30),
-                      MaterialButton(
-                        minWidth: 150,
-                        onPressed: () async {
-                          if (LocalServerHandler().ftpServer == null) {
-                            await LocalServerHandler().toggleServer(
-                              directories: directories,
-                              auth: Auth(
-                                usernameController.text,
-                                passwordController.text,
+                                  IconButton(
+                                    onPressed: () {
+                                      directories.remove(e);
+                                      setStat(() {});
+                                    },
+                                    icon: Icon(Icons.remove),
+                                  ),
+                                ],
                               ),
+                            ),
+                            SizedBox(width: 20),
+                            MaterialButton(
+                              onPressed: () async {
+                                await LocalServerHandler().requestPermission();
+                                if (await Permission
+                                        .manageExternalStorage
+                                        .isPermanentlyDenied ||
+                                    await Permission
+                                        .manageExternalStorage
+                                        .isDenied) {
+                                  Fluttertoast.showToast(
+                                    msg: 'Storage permission denied',
+                                  );
+                                  return;
+                                }
+
+                                String? path =
+                                    await FilePicker.platform
+                                        .getDirectoryPath();
+                                if (path != null) {
+                                  directories.add(path);
+                                  setStat(() {});
+                                }
+                              },
+                              child: Text('Add directory +'),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 30),
+                        MaterialButton(
+                          minWidth: 150,
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (_) => Dialog(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(10),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          TextField(
+                                            controller: usernameController,
+                                            decoration: InputDecoration(
+                                              hintText: 'Username',
+                                            ),
+                                          ),
+                                          SizedBox(height: 10),
+                                          TextField(
+                                            controller: passwordController,
+                                            decoration: InputDecoration(
+                                              hintText: 'Password',
+                                            ),
+                                          ),
+                                          SizedBox(),
+                                          MaterialButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text('Done'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                             );
-                          } else {
-                            await LocalServerHandler().stopServer();
-                          }
-                          setStat(() {});
-                        },
-                        child:
-                            LocalServerHandler().ftpServer == null
-                                ? Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Host'),
-                                    Icon(Icons.wifi_tethering),
-                                  ],
-                                )
-                                : Row(
-                                  children: [
-                                    Text('Stop server'),
-                                    Icon(Icons.stop),
-                                  ],
-                                ),
-                      ),
-                    ],
+                          },
+                          child: Text('Require authentication? (optional)'),
+                        ),
+                        SizedBox(height: 30),
+                        MaterialButton(
+                          minWidth: 150,
+                          onPressed: () async {
+                            if (LocalServerHandler().ftpServer == null) {
+                              await LocalServerHandler().toggleServer(
+                                directories: directories,
+                                auth:
+                                    usernameController.text.isEmpty ||
+                                            passwordController.text.isEmpty
+                                        ? null
+                                        : Auth(
+                                          usernameController.text,
+                                          passwordController.text,
+                                        ),
+                              );
+                            } else {
+                              await LocalServerHandler().stopServer();
+                            }
+                            setStat(() {});
+                            setState(() {});
+                          },
+                          child:
+                              LocalServerHandler().ftpServer == null
+                                  ? Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Host'),
+                                      Icon(Icons.wifi_tethering),
+                                    ],
+                                  )
+                                  : Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Stop server'),
+                                      Icon(Icons.stop),
+                                    ],
+                                  ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

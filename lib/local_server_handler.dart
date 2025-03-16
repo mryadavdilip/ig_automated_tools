@@ -79,7 +79,8 @@ class LocalServerHandler {
 
     var server = FtpServer(
       port ?? Random().nextInt(65535),
-      sharedDirectories: [serverDirectory],
+      sharedDirectories:
+          (directories ?? []).isNotEmpty ? directories! : [serverDirectory],
       serverType: ServerType.readAndWrite,
       logFunction: (p0) => debugPrint(p0),
       username: auth?.username,

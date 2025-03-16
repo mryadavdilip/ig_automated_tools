@@ -21,7 +21,7 @@ class MediaFileModel {
 
   /// Post message iOS ONLY
   @HiveField(5)
-  final String? message;
+  String? message;
 
   MediaFileModel({
     required this.path,

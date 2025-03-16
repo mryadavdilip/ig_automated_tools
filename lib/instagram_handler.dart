@@ -257,7 +257,7 @@ class InstagramAPIs {
 
     var res = switch (fileData.type) {
       SharedFileType.image => await _apiManager.post(
-        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}?${_Queries.imageUrl}=',
+        '${account?.instagramBusinessAccount.id}/${_EndPoints.media}?${_Queries.imageUrl}=${fileData.message}',
 
         headers: await _apiManager.getDefaultAuthorizedHeaders,
       ),
