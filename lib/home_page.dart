@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,6 +19,8 @@ import 'package:smart_gallery/models/media_file_model.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart' as rsi;
 import 'package:smart_gallery/models/meta_models/accounts.dart';
 import 'package:smart_gallery/models/meta_models/fb_instagram_business_account.dart';
+import 'package:shelf/shelf.dart';
+import 'package:shelf/shelf_io.dart' as shelf_io;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,6 +52,19 @@ class _HomePageState extends State<HomePage> {
     super.initState();
   }
 
+  server() async {
+    HttpServer server = await HttpServer.bind(InternetAddress.anyIPv4, 8080);
+    server.listen((req) {
+      req.response
+        ..write('Oho')
+        ..close();
+    });
+
+    Fluttertoast.showToast(
+      msg: 'listening at ${await NetworkInfo().getWifiIP()}:8080',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,6 +73,7 @@ class _HomePageState extends State<HomePage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              ElevatedButton(onPressed: server, child: Text('server')),
               Row(
                 children: [
                   Spacer(),
