@@ -19,8 +19,6 @@ import 'package:smart_gallery/models/media_file_model.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart' as rsi;
 import 'package:smart_gallery/models/meta_models/accounts.dart';
 import 'package:smart_gallery/models/meta_models/fb_instagram_business_account.dart';
-import 'package:shelf/shelf.dart';
-import 'package:shelf/shelf_io.dart' as shelf_io;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
